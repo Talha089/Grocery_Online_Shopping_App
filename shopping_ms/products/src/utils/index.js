@@ -70,7 +70,8 @@ module.exports.CreateChannel = async () => {
 // publish message
 module.exports.PublishMessage = async (channel, service, message) => {
   try {
-    await channel.publish(EXCHANGE_NAME, binding_key, BUFFER.from(message))
+    channel.publish(EXCHANGE_NAME, service, Buffer.from(message));
+    console.log('Message has been sent', message)
   } catch (error) {
     throw error;
   }
@@ -79,7 +80,7 @@ module.exports.PublishMessage = async (channel, service, message) => {
 module.exports.SubscribeMessage = async (channel, service) => {
 
   try {
-    const appQueue = await channel.assertQueue(QUEUE_NAME);
+    const appQueue = await channel.assertQueue('QUEUE_NAME');
 
     channel.bingQueue(appQueue.queue, EXCHANGE_NAME, binding_key);
     channel.consume(appQueue.queue, data => {

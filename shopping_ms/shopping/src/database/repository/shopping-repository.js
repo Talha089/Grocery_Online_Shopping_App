@@ -1,6 +1,6 @@
 const { CustomerModel, ProductModel, OrderModel, CartModel } = require('../models');
 const { v4: uuidv4 } = require('uuid');
-const { APIError, BadRequestError } = require('../../utils/app-errors')
+const { APIError, BadRequestError ,STATUS_CODES} = require('../../utils/app-errors')
 
 
 //Dealing with data base operations
@@ -33,7 +33,9 @@ class ShoppingRepository {
 
     async AddCartItem(customerId, item, qty, isRemove) {
         try {
-            const cart = await CustomerModel.findOne({ customerId });
+            console.log('****** customerId ****',typeof customerId)
+            const cart = await CartModel.findOne({ customerId });
+            console.log('****** cart', cart)
             const { _id } = item;
 
             if (cart) {

@@ -147,6 +147,7 @@ class CustomerService {
         switch(event){
             case 'ADD_TO_WISHLIST':
             case 'REMOVE_FROM_WISHLIST':
+                console.log('**** this stitch has been called')
                 this.AddToWishlist(userId,product)
                 break;
             case 'ADD_TO_CART':
