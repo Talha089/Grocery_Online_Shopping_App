@@ -1,5 +1,5 @@
 const amqplib = require("amqplib");
-const { v4: uuid } = require('uuid');
+const { v4: uuid4 } = require('uuid');
 
 let amqplibConnection = null;
 
@@ -10,40 +10,58 @@ const getChannel = async () => {
     return await amqplibConnection.createChannel();
 }
 
+const expensiveDBOperation = (payload, fakeResponse) => {
+    console.log(payload);
+    console.log(fakeResponse);
+
+    return new Promise((req, res) => {
+        setTimeout(() => {
+            res(fakeResponse)
+        }, 3000);
+    })
+}
+
 const RPCObserver = async (RPC_QUEUE_NAME, fakeResponse) => {
-    const createChannel = await getChannel();
+    const channel = await getChannel();
     await channel.assertQueue(RPC_QUEUE_NAME, {
         durable: false
     });
     channel.prefetch(1);
-    channel.consume();
-    async (msg) => {
-        if (msg.context) {
-            //DB operation
-            const payload = JSON.parse(msg.context.toString());
-            const response = { fakeResponse }; // Call fake DB operation
-            channel.sendToQueue(
-                msg.properties.replayTo,
-                Buffer.from(JSON.stringify(response)),
-                {
-                    correlationId: msg.properties.correlationId,
-                }
-            );
-        }
-    }, {
+    channel.consume(
+        RPC_QUEUE_NAME,
+        async (msg) => {
+            if (msg.context) {
+                console.log(msg.context)
+                //DB operation
+                const payload = JSON.parse(msg.context.toString());
+                const response = await expensiveDBOperation(payload, fakeResponse)// Call fake DB operation
+                channel.sendToQueue(
+                    msg.properties.replyTo,
+                    Buffer.from(JSON.stringify(response)),
+                    {
+                        correlationId: msg.properties.correlationId,
+                    }
+                );
+                channel.ack(msg)
+            }
+        }, {
         noAck: false
     }
+    );
 }
 
 const requestData = async (RPC_QUEUE_NAME, requestPayload, uuid) => {
-    const channel = getChannel();
-
+    
+    const channel = await getChannel();
+    
     const q = await channel.assertQueue("", { exclusive: true });
-
+    console.log('nooo');
+    
     channel.sendToQueue(RPC_QUEUE_NAME, Buffer.from(JSON.stringify(requestPayload)), {
-        replayTo: q.queue,
+        replyTo: q.queue,
         correlationId: uuid
     });
+    console.log('**** LOGGERRR')
 
     return new Promise((resolve, reject) => {
         channel.consume(q.queue, (msg) => {
@@ -60,6 +78,13 @@ const requestData = async (RPC_QUEUE_NAME, requestPayload, uuid) => {
 }
 
 const RPCRequest = async (RPC_QUEUE_NAME, requestPayload) => {
-    const uuid = uuid(); //correlation Id
+    console.log('*****requestreceived', RPC_QUEUE_NAME, requestPayload)
+    const uuid = uuid4(); //correlation Id
     return requestData(RPC_QUEUE_NAME, requestPayload, uuid);
+}
+
+module.exports = {
+    getChannel,
+    RPCObserver,
+    RPCRequest
 }
